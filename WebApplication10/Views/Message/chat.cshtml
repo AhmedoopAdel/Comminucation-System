@@ -1,0 +1,147 @@
+﻿@model List<WebApplication10.Models.Message>
+@{
+    // افتراض أن ViewBag.ReceiverUsername متاح هنا
+    string receiverUsername = ViewBag.ReceiverUsername ?? "المستخدم الآخر";
+    int receiverId = ViewBag.ReceiverId;
+    var currentUserId = Context.Session.GetInt32("UserId");
+}
+
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+
+            <div class="card card-header bg-primary text-white shadow-sm mb-0 rounded-bottom-0">
+                <h4 class="mb-0"><i class="bi bi-chat-dots-fill me-2"></i> محادثة مع: @receiverUsername</h4>
+            </div>
+
+            <div id="chatBox" class="card card-body shadow-sm rounded-top-0 border-top-0" 
+                 style="height: 450px; overflow-y: scroll; background-color: #f8f9fa;">
+                
+                @foreach (var msg in Model)
+                {
+                    bool isCurrentUser = msg.SenderId == currentUserId;
+                    string alignmentClass = isCurrentUser ? "justify-content-end" : "justify-content-start";
+                    string bubbleColor = isCurrentUser ? "bg-success text-white" : "bg-light";
+                    string senderName = isCurrentUser ? "أنت" : msg.Sender.Username;
+
+                    <div class="d-flex @alignmentClass mb-3">
+                        <div class="message-bubble @bubbleColor py-2 px-3 rounded-3" style="max-width: 75%;">
+                            <p class="mb-1 fw-bold small">@senderName:</p>
+                            
+                            <p class="mb-1">@msg.Content</p>
+
+                            @if (!string.IsNullOrEmpty(msg.FileUrl))
+                            {
+                                // عرض الرابط للملف
+                                <p class="mb-1">
+                                    <a href="@msg.FileUrl" target="_blank" class="text-white text-decoration-underline small">📎 عرض الملف</a>
+                                </p>
+                                
+                                // عرض الصور مباشرة
+                                if (msg.FileUrl.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || 
+                                    msg.FileUrl.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || 
+                                    msg.FileUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || 
+                                    msg.FileUrl.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <img src="@msg.FileUrl" class="img-fluid rounded mt-2" style="max-width:200px; max-height:200px;" />
+                                }
+                            }
+                            
+                            <small class="d-block text-end @(isCurrentUser ? "text-white-50" : "text-muted")">@msg.CreatedAt.ToString("g")</small>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="card card-footer shadow-sm rounded-top-0 border-top-0">
+                <form id="chatForm" class="d-flex align-items-center" enctype="multipart/form-data">
+                    <input type="hidden" id="receiverId" name="receiverId" value="@receiverId" />
+                    
+                    <input type="text" id="messageInput" name="content" class="form-control me-2" 
+                           placeholder="اكتب رسالة..." required />
+
+                    <label for="fileInput" class="btn btn-outline-secondary me-2" title="إرفاق ملف">
+                        <i class="bi bi-paperclip"></i>
+                    </label>
+                    <input type="file" id="fileInput" name="file" class="d-none" />
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-send-fill"></i> إرسال
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.7/signalr.min.js"></script>
+
+<script>
+    const chatConnection = new signalR.HubConnectionBuilder()
+        .withUrl("/chatHub")
+        .build();
+
+    chatConnection.on("ReceiveMessage", function(message, senderUsername, fileUrl) {
+        const chatBox = document.getElementById("chatBox");
+        const div = document.createElement("div");
+        div.classList.add("message");
+        div.style.marginBottom = "5px";
+        div.style.textAlign = "left";
+
+        let html = `<span style="background:#f1f1f1; padding:5px 10px; border-radius:10px;"><b>${senderUsername}:</b> ${message}</span>`;
+        if(fileUrl){
+            html += `<br/><a href="${fileUrl}" target="_blank">📎 View File</a>`;
+            if(fileUrl.match(/\.(jpg|jpeg|png|gif)$/i)){
+                html += `<br/><img src="${fileUrl}" style="max-width:200px; max-height:200px;"/>`;
+            }
+        }
+        html += `<br/><small>${new Date().toLocaleString()}</small>`;
+        div.innerHTML = html;
+
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    chatConnection.start().catch(err => console.error(err.toString()));
+
+    document.getElementById("chatForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const receiverId = document.getElementById("receiverId").value;
+        const message = document.getElementById("messageInput").value;
+
+        fetch('/Message/SendMessage', {
+                method: 'POST',
+                body: new FormData(document.getElementById('chatForm'))
+            })
+            .then(res => res.json())
+            .then(data => {
+
+                const chatBox = document.getElementById("chatBox");
+                const div = document.createElement("div");
+                div.style.marginBottom = "5px";
+                div.style.textAlign = "right";
+
+                let html = `<span style="background:#d1ffd6; padding:5px 10px; border-radius:10px;">
+                                <b>You:</b> ${data.content}
+                            </span>`;
+
+                if (data.fileUrl) {
+                    html += `<br><a href="${data.fileUrl}" target="_blank">📎 View File</a>`;
+                    if (data.fileUrl.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                        html += `<br><img src="${data.fileUrl}" style="max-width:200px; max-height:200px;">`;
+                    }
+                }
+
+                html += `<br><small>${new Date().toLocaleString()}</small>`;
+
+                div.innerHTML = html;
+                chatBox.appendChild(div);
+                chatBox.scrollTop = chatBox.scrollHeight;
+
+                document.getElementById("messageInput").value = "";
+            });
+
+
+    });
+</script>

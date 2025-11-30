@@ -1,0 +1,136 @@
+﻿@model WebApplication10.Models.User
+
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <div class="card shadow-lg mb-5 p-4 bg-white border-0 rounded-4">
+                <div class="text-center">
+
+                    <img src="@(Model.ProfilePicUrl ?? "/images/default.png")"
+                         alt="Profile Picture"
+                         class="rounded-circle border border-primary border-4 mb-3"
+                         style="width:120px; height:120px; object-fit: cover;" />
+
+                    <h2 class="fw-bold mb-1">@Model.Username</h2>
+
+                    <p class="text-muted mb-3">@Model.Bio</p>
+
+                    <div class="d-flex justify-content-center mb-4">
+                        <div class="me-4">
+                            <h5 class="mb-0 fw-bold">@ViewBag.FollowersCount</h5>
+                            <small class="text-secondary">متابع</small>
+                        </div>
+                        <div>
+                            <h5 class="mb-0 fw-bold">@ViewBag.FollowingCount</h5>
+                            <small class="text-secondary">متابِع</small>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-center gap-3">
+                        @if (ViewBag.CurrentUserId != Model.Id)
+                        {
+                            <a href="/Message/Chat?userId=@Model.Id" class="btn btn-outline-primary">
+                                <i class="bi bi-chat-dots-fill me-1"></i> مراسلة
+                            </a>
+
+                            @if (ViewBag.IsFollowing)
+                            {
+                                <form method="post" action="/Post/Unfollow" class="d-inline">
+                                    <input type="hidden" name="userId" value="@Model.Id" />
+                                    <button type="submit" class="btn btn-danger">
+                                        <i class="bi bi-person-dash-fill me-1"></i> إلغاء المتابعة
+                                    </button>
+                                </form>
+                            }
+                            else
+                            {
+                                <form method="post" action="/Post/Follow" class="d-inline">
+                                    <input type="hidden" name="userId" value="@Model.Id" />
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="bi bi-person-plus-fill me-1"></i> متابعة
+                                    </button>
+                                </form>
+                            }
+                        }
+                        else
+                        {
+                            <a href="/Post/EditProfile" class="btn btn-secondary">
+                                <i class="bi bi-pencil-square me-1"></i> تعديل الملف الشخصي
+                            </a>
+                        }
+                    </div>
+
+                </div>
+            </div>
+
+            <h3 class="mt-4 mb-4 text-primary">منشورات @Model.Username</h3>
+
+            @foreach (var post in Model.Posts.OrderByDescending(p => p.CreatedAt))
+            {
+
+                <div class="card post-card mb-4 shadow-sm">
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(post.Content))
+                        {
+                            <p class="card-text fs-6">
+                                <a href="/post/details/@post.Id" style="text-decoration:none;">@Html.Raw(post.Content)</a>
+                            </p>
+                        }
+
+                        @* 2. التحقق إذا كان المنشور الحالي هو مشاركة لمنشور آخر *@
+                        @if (post.OriginalPost != null)
+                        {
+                            <div class="original-post-card border rounded p-3 mt-2 mb-3 bg-light">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="bi bi-person-circle me-2 text-primary"></i>
+                                    <span class="fw-bold small">
+                                        @@@post.OriginalPost.User.Username
+                                    </span>
+                                    <small class="text-muted ms-auto">@post.OriginalPost.CreatedAt.ToString("g")</small>
+                                </div>
+
+                                @* محتوى المنشور الأصلي *@
+                                <p class="card-text small text-dark">
+                                    @post.OriginalPost.Content
+                                </p>
+
+                                @* صورة المنشور الأصلي (إن وجدت) *@
+                                @if (!string.IsNullOrEmpty(post.OriginalPost.ImageUrl))
+                                {
+                                    <img src="@post.OriginalPost.ImageUrl" class="img-fluid rounded mt-2" alt="صورة المنشور الأصلي" />
+                                }
+
+                                @* رابط شفاف لتفاصيل المنشور الأصلي *@
+                                <a href="/Post/Details/@post.OriginalPost.Id" class="stretched-link" title="عرض المنشور الأصلي"></a>
+                            </div>
+                        }
+                        <small class="text-muted d-block mb-3">@post.CreatedAt.ToString("g")</small>
+
+                        <div class="d-flex justify-content-between align-items-center border-top pt-2">
+                            <span class="text-primary"><i class="bi bi-heart-fill"></i> @post.Likes.Count</span>
+
+                            <a class="btn btn-link text-secondary p-0"
+                               data-bs-toggle="collapse" href="#comments-@post.Id" role="button" aria-expanded="false"
+                               aria-controls="comments-@post.Id">
+                                <i class="bi bi-chat-left-text-fill"></i> @post.Comments.Count تعليق
+                            </a>
+                        </div>
+
+                        <div class="collapse mt-3 border-top pt-3" id="comments-@post.Id">
+                            @foreach (var c in post.Comments.OrderByDescending(x => x.CreatedAt))
+                            {
+                                <div class="p-2 mb-1 border-bottom">
+                                    <small class="fw-bold">@c.User.Username:</small>
+                                    <small>@c.Content</small>
+                                    <p class="text-muted small mb-0">@c.CreatedAt.ToString("g")</p>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+        </div>
+    </div>
+</div>

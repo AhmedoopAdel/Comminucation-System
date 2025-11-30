@@ -1,0 +1,48 @@
+﻿
+
+<div class="container m-4">
+    <div class="row justify-content-center">
+        <div class="col-sm-10 col-md-8 col-lg-6">
+
+            <div class="card login-card p-4">
+                <div class="card-body text-center">
+                    <h2 class="card-title text-primary fw-bold mb-4">انشاء حساب جديد</h2>
+
+                    <form method="POST">
+
+                        <div class="mb-3">
+                            <input type="text" class="form-control form-control-lg" name="username"
+                                   placeholder=" اسم المستخدم" required>
+                        </div>
+                        <div class="mb-3">
+                            <input type="email" class="form-control form-control-lg" name="email"
+                                   placeholder="البريد الإلكتروني " required>
+                        </div>
+                        <div class="mb-3">
+                            <input type="password" class="form-control form-control-lg" name="password"
+                                   placeholder="كلمة المرور" required>
+                        </div>
+
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg">انشاء حساب</button>
+                        </div>
+
+                        
+
+                        <hr class="my-4">
+
+                        <p class="text-muted"> لديك حساب؟</p>
+                        <a href="/account/login" class="btn btn-success btn-sm px-4">تسجيل الدخول</a>
+
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@if (ViewBag.Error != null)
+{
+    <p>@ViewBag.Error</p>
+}

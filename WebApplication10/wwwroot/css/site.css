@@ -1,0 +1,45 @@
+﻿/* تحديد الألوان الرئيسية للموقع */
+:root {
+    --primary-color: #007bff; /* أزرق - اللون الأساسي */
+    --secondary-color: #6c757d; /* رمادي - للروابط الثانوية */
+    --bg-light: #f0f2f5; /* لون خلفية الصفحة فاتح */
+}
+
+/* تطبيق خلفية فاتحة على جسم الصفحة بالكامل */
+body {
+    background-color: var(--bg-light);
+    padding-top: 56px; /* لتجنب تداخل شريط التنقل الثابت مع المحتوى */
+}
+
+/* تنسيق شريط التنقل */
+.navbar {
+    z-index: 1030; /* لضمان ظهوره فوق باقي العناصر */
+}
+
+/* تنسيق بطاقات المنشورات */
+.post-card {
+    border-radius: 12px;
+    border: none;
+    transition: transform 0.2s; /* إضافة تأثير بسيط عند التحويم */
+}
+
+    .post-card:hover {
+        transform: translateY(-2px);
+    }
+
+    /* تنسيق صورة الملف الشخصي الصغيرة (في المنشورات) */
+    .post-card .rounded-circle {
+        object-fit: cover; /* التأكد من أن الصورة تملأ المربع دون تشوه */
+        border: 1px solid var(--bg-light);
+    }
+
+/* تنسيق الأيقونات (لجعلها أكبر قليلاً وأكثر وضوحاً) */
+.navbar-nav .nav-link i {
+    font-size: 1.25rem;
+    color: var(--secondary-color);
+}
+
+.list-group-item i {
+    margin-left: 5px;
+    color: var(--primary-color);
+}

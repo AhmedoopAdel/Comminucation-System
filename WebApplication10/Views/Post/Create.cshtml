@@ -1,0 +1,41 @@
+﻿@model WebApplication10.Models.Post // قد تحتاج لتغيير اسم الـ Model إذا كان مختلفًا
+
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8">
+
+            <div class="card shadow-lg p-4">
+                <div class="card-body">
+                    <h3 class="card-title text-primary mb-4">📝 إنشاء منشور جديد</h3>
+
+                    <form method="post" enctype="multipart/form-data">
+
+                        <div class="mb-3">
+                            <label for="content" class="form-label fw-bold">ماذا تفكر؟</label>
+                            <textarea name="content" id="content" class="form-control" rows="5"
+                                      placeholder="اكتب مشاركتك هنا..." required></textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="imageFile" class="form-label fw-bold">إرفاق صورة (اختياري)</label>
+                            <input type="file" name="imageFile" id="imageFile" class="form-control" accept="image/*" />
+                            <small class="form-text text-muted">الحد الأقصى لحجم الملف...</small>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-send-fill me-2"></i> نــشــر
+                            </button>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+
+            <div class="text-center mt-3">
+                <a href="/Post/Index" class="btn btn-link text-secondary">العودة إلى الموجز</a>
+            </div>
+
+        </div>
+    </div>
+</div>

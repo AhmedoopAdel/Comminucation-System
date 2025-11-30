@@ -1,0 +1,94 @@
+﻿@model List<WebApplication10.Models.Notification>
+
+@{
+    ViewData["Title"] = "الإشعارات";
+}
+
+<div class="row justify-content-center pt-5">
+    <div class="col-md-8 col-lg-6">
+        <h2 class="mb-4 text-primary">الإشعارات</h2>
+
+        @if (Model == null || !Model.Any())
+        {
+            <div class="alert alert-info text-center" role="alert">
+                لا توجد إشعارات حالياً.
+            </div>
+        }
+        else
+        {
+            @foreach (var n in Model)
+            {
+                // إذا كان PostId موجوداً نربط الإشعار بصفحة المنشور، وإلا نربطه بالصفحة الحالية (#)
+                var linkUrl = n.PostId.HasValue ? $"/Post/Details/{n.PostId}" : "#";
+                var isReadClass = n.IsRead ? "bg-light text-muted" : "bg-white border-primary border-start-5 shadow-sm";
+                var readTextClass = n.IsRead ? "text-muted" : "text-primary";
+
+                <a href="@linkUrl"
+                   data-notification-id="@n.Id"
+                   class="notification-item list-group-item list-group-item-action mb-2 @isReadClass"
+                   style="border-left-width: 5px; cursor: pointer;"
+                   onclick="handleNotificationClick(event, this, @n.PostId)">
+
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1 @(n.IsRead ? "fw-normal" : "fw-bold")">@n.Message</h6>
+                        <small class="@readTextClass">@n.CreatedAt.ToString("g")</small>
+                    </div>
+
+                    @if (!n.IsRead)
+                    {
+                        <small class="@readTextClass read-status">غير مقروء</small>
+                    }
+                    else
+                    {
+                        <small class="@readTextClass read-status">مقروء</small>
+                    }
+                </a>
+            }
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // دالة لجعل الإشعار مقروءاً عبر AJAX (نفس الدالة المستخدمة في _Layout)
+        function markNotificationAsRead(notificationId) {
+            fetch('/Post/MarkAsRead?notificationId=' + notificationId, {
+                method: 'POST',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // إذا نجحت العملية، يمكنك تحديث العداد في شريط التنقل العلوي (إذا كان مرئياً)
+                    console.log('Notification ' + notificationId + ' marked as read.');
+                    // إذا كنت تستخدم SignalR، فإنه سيتولى تحديث الـ badge في _Layout
+                }
+            })
+            .catch(error => console.error('Error marking as read:', error));
+        }
+
+        // دالة لمعالجة الضغط على الإشعار
+        function handleNotificationClick(event, element, postId) {
+            const notificationId = element.getAttribute('data-notification-id');
+            const isRead = element.classList.contains('bg-light'); // تحقق من حالة القراءة الحالية
+
+            // 1. جعل الإشعار مقروءاً إذا لم يكن كذلك
+            if (!isRead) {
+                markNotificationAsRead(notificationId);
+
+                // تحديث الستايل مباشرة (دون انتظار استجابة AJAX)
+                element.classList.remove('bg-white', 'border-primary', 'border-start-5', 'shadow-sm');
+                element.classList.add('bg-light', 'text-muted');
+                element.querySelector('h6').classList.remove('fw-bold');
+                element.querySelector('h6').classList.add('fw-normal');
+                element.querySelector('.read-status').textContent = 'مقروء';
+            }
+
+            // 2. التوجيه إذا كان هناك رابط
+            if (postId) {
+                // التوجيه سيحدث بشكل طبيعي عبر href
+            } else {
+                event.preventDefault(); // منع التوجيه إذا لم يكن هناك postId
+            }
+        }
+    </script>
+}

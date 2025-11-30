@@ -1,0 +1,459 @@
+﻿@model WebApplication10.Models.IndexViewModel
+@{
+    ViewData["Title"] = "الصفحة الرئيسية";
+    var currentUserId = Context.Session.GetInt32("UserId");
+}
+@* يجب تضمين المودال في نهاية الصفحة *@
+
+<div class="container mt-5 pt-3">
+    <div class="row">
+
+        <div class="col-md-3 d-none d-md-block">
+            <div class="list-group mb-4 shadow-sm">
+                <a href="/post/index" class="list-group-item list-group-item-action active"><i class="bi bi-house-door-fill"></i> الرئيسية</a>
+                <a href="/Reels/Feed" class="list-group-item list-group-item-action"><i class="bi bi-film"></i> خلاصة الريلز</a>
+                <a href="/Reels/Upload" class="list-group-item list-group-item-action text-success"><i class="bi bi-plus-circle-fill"></i> إنشاء ريلز جديد</a>
+
+                <a href="/account/Profile/@currentUserId" class="list-group-item list-group-item-action"><i class="bi bi-person-fill"></i> الملف الشخصي</a>
+                <a href="/Post/Users" class="list-group-item list-group-item-action"><i class="bi bi-people-fill"></i> الأصدقاء والمستخدمون</a>
+               
+                <a href="/Post/Create" class="list-group-item list-group-item-action text-success"><i class="bi bi-plus-circle-fill"></i> إنشاء منشور جديد</a>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-12">
+
+            <div class="stories-bar d-flex overflow-auto p-3 bg-white rounded shadow-sm border mb-4" style="gap: 15px;">
+
+                <div class="story-item text-center flex-shrink-0" onclick="openCreateStoryModal()" style="cursor: pointer;">
+                    <div class="story-ring border border-2 border-dashed border-secondary rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 60px; height: 60px; background-color: #f8f9fa;">
+                        <i class="bi bi-plus-circle-fill fs-4 text-primary"></i>
+                    </div>
+                    <small class="d-block mt-1 fw-bold text-muted">أضف قصتك</small>
+                </div>
+
+                @if (Model.GroupedStories != null)
+                {
+                    @foreach (var userGroup in Model.GroupedStories.OrderByDescending(g => g.Key == currentUserId)) // عرض قصص المستخدم الحالي أولاً
+                    {
+                        var firstStory = userGroup.First();
+                        var publisher = firstStory.User ?? new User { Username = "مستخدم محذوف" };
+
+                        // يمكنك إضافة منطق لتغيير لون الإطار إذا كانت القصص "جديدة"
+                        var storyRingClass = (userGroup.Count() > 0) ? "border-danger" : "border-muted";
+
+                        <a href="/Post/ViewStories?userId=@userGroup.Key" class="story-item text-center flex-shrink-0 text-decoration-none text-dark">
+                            <div class="story-ring @storyRingClass border border-3 rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 60px; height: 60px; padding: 2px;">
+                                <img src="https://via.placeholder.com/56" alt="@publisher.Username" class="rounded-circle bg-white" style="width: 56px; height: 56px; object-fit: cover; border: 2px solid white;">
+                            </div>
+                            <small class="d-block mt-1 text-truncate" style="max-width: 60px;">@publisher.Username</small>
+                        </a>
+                    }
+                }
+
+            </div>
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">ماذا تفكر؟ 🤔</h5>
+                    <a href="/Post/Create" class="btn btn-outline-primary w-100">ابـدأ بالكتابة...</a>
+                </div>
+            </div>
+
+            @foreach (var post in Model.Posts) // استخدام Model.Posts
+            {
+                var likeCount = post.Likes?.Count ?? 0;
+                var isLiked = post.Likes != null && post.Likes.Any(l => l.UserId == currentUserId);
+                var commentsCount = post.Comments?.Count ?? 0;
+
+                <div class="card post-card mb-4 shadow-sm" data-post-id="@post.Id">
+
+                    <div class="card-header d-flex align-items-center bg-white border-bottom-0">
+                        <a href="/account/Profile/@post.User.Id" class="d-flex align-items-center text-decoration-none text-dark">
+                            <img src="https://via.placeholder.com/40" class="rounded-circle me-3"
+                                 style="width: 40px; height: 40px;" alt="صورة المستخدم">
+                            <div>
+                                <h6 class="mb-0 fw-bold">@post.User.Username</h6>
+                                <small class="text-muted">@post.CreatedAt.ToString("g")</small>
+                            </div>
+                        </a>
+                        <button class="btn btn-sm ms-auto text-secondary"><i class="bi bi-three-dots"></i></button>
+                    </div>
+
+                    <div class="card-body pt-0">
+
+                        @* 1. عرض محتوى المنشور الجديد (وهو تعليق المستخدم) *@
+                        @if (!string.IsNullOrEmpty(post.Content))
+                        {
+                            <p class="card-text">@Html.Raw(post.Content)</p>
+                        }
+
+                        @* 2. التحقق إذا كان المنشور الحالي هو مشاركة لمنشور آخر *@
+                        @if (post.OriginalPost != null)
+                        {
+                            <div class="original-post-card border rounded p-3 mt-2 mb-2 bg-light">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="bi bi-person-circle me-2 text-primary"></i>
+                                    <span class="fw-bold small">
+                                        @@@post.OriginalPost.User.Username
+                                    </span>
+                                    <small class="text-muted ms-auto">@post.OriginalPost.CreatedAt.ToString("g")</small>
+                                </div>
+
+                                @* محتوى المنشور الأصلي *@
+                                <p class="card-text small text-dark">
+                                    @post.OriginalPost.Content
+                                </p>
+
+                                @* صورة المنشور الأصلي (إن وجدت) *@
+                                @if (!string.IsNullOrEmpty(post.OriginalPost.ImageUrl))
+                                {
+                                    <img src="@post.OriginalPost.ImageUrl" class="img-fluid rounded mt-2" alt="صورة المنشور الأصلي" />
+                                }
+
+                                @* رابط شفاف لتفاصيل المنشور الأصلي *@
+                                <a href="/Post/Details/@post.OriginalPost.Id" class="stretched-link" title="عرض المنشور الأصلي"></a>
+                            </div>
+                        }
+                        @* 3. إذا لم يكن مشاركة وكان له صورة عادية (تظهر الصورة فقط إذا لم يكن مشاركة)*@
+                        else if (!string.IsNullOrEmpty(post.ImageUrl))
+                        {
+                            <img src="@post.ImageUrl" alt="Post Image" class="img-fluid rounded mb-3" />
+                        }
+                    </div>
+
+                    <div class="card-footer bg-white border-top-0 pt-0">
+                        <small class="text-primary d-block mb-2">
+                            <span class="like-count-@post.Id">@likeCount</span> ❤️ إعجاب
+                        </small>
+
+                        <div class="d-flex justify-content-between border-top pt-2">
+
+                            <button type="button"
+                                    class="btn btn-sm btn-light text-primary like-btn @(isLiked ? "active-like" : "")"
+                                    data-post-id="@post.Id"
+                                    onclick="toggleLike(this)">
+                                <i class="bi bi-hand-thumbs-up-fill"></i>
+                                <span class="like-text">@(isLiked ? "أعجبني" : "إعجاب")</span>
+                            </button>
+
+                            <a href="/Post/Details/@post.Id" class="btn btn-sm btn-light text-secondary comment-link-@post.Id">
+                                <i class="bi bi-chat-left-text-fill"></i> تعليق (@commentsCount)
+                            </a>
+
+                            @* في ملف Index.cshtml داخل حلقة @foreach (var post in Model.Posts) *@
+
+                            @* استخدم هذا الكود المعدل لنسخ الرابط مباشرة *@
+                            <button class="btn btn-sm btn-light text-success share-btn"
+                                    data-post-id="@post.Id"
+                                    data-post-content="@post.Content"
+                                    data-post-username="@post.User.Username"
+                                    data-post-imageurl="@post.ImageUrl"
+                                    type="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#sharePostModal">
+                                <i class="bi bi-share-fill"></i> مشاركة
+                            </button>
+                        </div>
+
+                        <div class="mt-3 border-top pt-3 comments-section-@post.Id">
+                            <h6 class="text-muted small">التعليقات:</h6>
+                            <div class="comment-list">
+                                @foreach (var comment in post.Comments.OrderByDescending(c => c.CreatedAt).Take(2).Reverse())
+                                {
+                                    <div class="d-flex mb-2">
+                                        <small class="fw-bold me-2">@comment.User.Username:</small>
+                                        <small>@comment.Content</small>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (commentsCount > 2)
+                            {
+                                <a href="/Post/Details/@post.Id" class="small text-secondary">عرض كل @commentsCount تعليقات...</a>
+                            }
+
+                            <form class="comment-form mt-3 d-flex" data-post-id="@post.Id" onsubmit="handleCommentSubmit(event, this)">
+                                <input type="hidden" name="postId" value="@post.Id" />
+                                <input type="text" name="content" class="form-control form-control-sm me-2 comment-input" placeholder="أضف تعليقك..." required />
+                                <button type="submit" class="btn btn-primary btn-sm">إرسال</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+
+        </div>
+
+        <div class="col-md-3 d-none d-lg-block">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">💡 ترشيحات الأصدقاء</h6>
+                </div>
+                <ul class="list-group list-group-flush">
+                    @if (Model.SuggestedFriends != null && Model.SuggestedFriends.Any())
+                    {
+                        @foreach (var user in Model.SuggestedFriends)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <a href="/account/Profile/@user.Id" class="text-dark text-decoration-none d-flex align-items-center">
+                                    <img src="https://via.placeholder.com/30" class="rounded-circle me-2" style="width: 30px; height: 30px;" alt="صورة">
+                                    <span class="fw-bold small">@user.Username</span>
+                                </a>
+
+                                <form action="/Post/Follow" method="post" style="display:inline;">
+                                    <input type="hidden" name="userId" value="@user.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-person-plus-fill"></i> متابعة
+                                    </button>
+                                </form>
+                            </li>
+                        }
+                    }
+                    else
+                    {
+                        <li class="list-group-item text-center text-muted small">
+                            لا توجد ترشيحات حالياً.
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="sharePostModal" tabindex="-1" aria-labelledby="sharePostModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="sharePostModalLabel">✅ مشاركة منشور جديد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="shareForm">
+                <div class="modal-body">
+
+                    <input type="hidden" id="originalPostId" name="OriginalPostId" value="0" />
+
+                    <div id="originalPostCard" class="p-3 border rounded mb-3 bg-light text-muted small">
+                        جارٍ تحميل بيانات المنشور...
+                    </div>
+
+                    <label for="shareContent" class="form-label fw-bold">أضف تعليقك على المشاركة (اختياري)</label>
+                    <textarea id="shareContent"
+                              name="Content"
+                              class="form-control"
+                              rows="3"
+                              placeholder="اكتب شيئًا حول هذا المنشور..."></textarea>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary" id="confirmShareButton">مشاركة</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+@await Html.PartialAsync("_CreateStoryModal")
+
+@section Scripts {
+    <style>
+        .active-like {
+            color: white !important;
+            background-color: #0d6efd !important;
+        }
+    </style>
+    <script>
+
+
+        // =======================================================
+        // 1. دالة الإعجاب (ToggleLike) - AJAX
+        // ... (الكود الخاص بها يبقى كما هو من النسخة التي أرسلتها) ...
+        async function toggleLike(button) {
+            const postId = button.getAttribute('data-post-id');
+            const isCurrentlyLiked = button.classList.contains('active-like');
+
+            // تحديث الـ UI فورا قبل استجابة السيرفر (Optimistic Update)
+            button.classList.toggle('active-like');
+            const likeCountElement = document.querySelector(`.like-count-${postId}`);
+            let currentCount = parseInt(likeCountElement.textContent);
+
+            if (isCurrentlyLiked) {
+                likeCountElement.textContent = currentCount - 1;
+                button.querySelector('.like-text').textContent = "إعجاب";
+            } else {
+                likeCountElement.textContent = currentCount + 1;
+                button.querySelector('.like-text').textContent = "أعجبني";
+            }
+
+            try {
+                const response = await fetch('/Post/ToggleLike', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `postId=${postId}`
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // تأكيد العدد والحالة بعد استجابة السيرفر
+                    likeCountElement.textContent = data.newLikeCount;
+                    if (data.isLiked) {
+                        button.classList.add('active-like');
+                        button.querySelector('.like-text').textContent = "أعجبني";
+                    } else {
+                        button.classList.remove('active-like');
+                        button.querySelector('.like-text').textContent = "إعجاب";
+                    }
+                } else {
+                    // إذا فشل الطلب، إرجاع الـ UI للحالة السابقة
+                    alert('فشل الإعجاب. يرجى تسجيل الدخول.');
+                    button.classList.toggle('active-like');
+                    likeCountElement.textContent = currentCount;
+                }
+
+            } catch (error) {
+                console.error('Error toggling like:', error);
+                alert('حدث خطأ في الاتصال.');
+                // إرجاع الـ UI للحالة السابقة في حالة خطأ الاتصال
+                button.classList.toggle('active-like');
+                likeCountElement.textContent = currentCount;
+            }
+        }
+
+        // =======================================================
+        // 2. دالة إضافة التعليق (AddComment) - AJAX
+        // ... (الكود الخاص بها يبقى كما هو من النسخة التي أرسلتها) ...
+        async function handleCommentSubmit(event, form) {
+            event.preventDefault(); // منع تحديث الصفحة
+
+            const postId = form.getAttribute('data-post-id');
+            const contentInput = form.querySelector('.comment-input');
+            const content = contentInput.value;
+
+            if (!content) return;
+
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = true; // تعطيل الزر أثناء الإرسال
+
+            try {
+                const response = await fetch('/Post/AddComment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `postId=${postId}&content=${encodeURIComponent(content)}`
+                });
+
+                const data = await response.json();
+                submitButton.disabled = false; // تفعيل الزر
+
+                if (data.success) {
+                    // 1. تحديث قائمة التعليقات في الـ UI
+                    const commentsSection = document.querySelector(`.comments-section-${postId}`);
+                    const commentList = commentsSection.querySelector('.comment-list');
+
+                    // إنشاء عنصر التعليق الجديد
+                    const newCommentHtml = `
+                        <div class="d-flex mb-2">
+                            <small class="fw-bold me-2">${data.username}:</small>
+                            <small>${data.content}</small>
+                        </div>
+                    `;
+
+                    // إضافته إلى قائمة التعليقات في النهاية
+                    commentList.insertAdjacentHTML('beforeend', newCommentHtml);
+
+                    // 2. مسح خانة الإدخال
+                    contentInput.value = '';
+
+                    // 3. تحديث عداد التعليقات
+                    const commentLink = document.querySelector(`.comment-link-${postId}`);
+                    commentLink.innerHTML = `<i class="bi bi-chat-left-text-fill"></i> تعليق (${data.newCommentCount})`;
+                } else {
+                    alert('فشل إضافة التعليق: ' + data.message);
+                }
+
+            } catch (error) {
+                console.error('Error adding comment:', error);
+                alert('حدث خطأ في الاتصال.');
+                submitButton.disabled = false;
+            }
+        }
+
+                // دالة لنسخ رابط المنشور وإظهار رسالة تأكيد
+              document.addEventListener('DOMContentLoaded', function() {
+            const shareModal = document.getElementById('sharePostModal');
+
+            if (shareModal) {
+                console.log("Modal element found.");
+
+                shareModal.addEventListener('show.bs.modal', function (event) {
+                    const button = event.relatedTarget;
+                    const postId = button.getAttribute('data-post-id');
+                    const postContent = button.getAttribute('data-post-content');
+
+                    console.log("Modal opening. Post ID read:", postId);
+
+                    // تعبئة البيانات
+                    document.getElementById('originalPostId').value = postId;
+                    document.getElementById('shareContent').value = '';
+
+                    // تحديث المعاينة (بأي شكل)
+                    const preview = document.getElementById('originalPostCard');
+                    if (preview) {
+                        preview.innerHTML = `معاينة: المنشور رقم ${postId}. محتوى: ${postContent.substring(0, 50)}...`;
+                    }
+                });
+
+                // معالجة الإرسال
+                document.getElementById('shareForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+
+                    const originalPostId = document.getElementById('originalPostId').value;
+                    const content = document.getElementById('shareContent').value;
+
+                    console.log("Attempting to share. Original Post ID:", originalPostId);
+
+                    const confirmButton = document.getElementById('confirmShareButton');
+                    confirmButton.disabled = true;
+                    confirmButton.textContent = 'جاري المشاركة...';
+
+                    try {
+                        const response = await fetch('/Post/SharePost', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded' // تأكد من هذا النوع لتوافق C#
+                            },
+                            // إرسال البيانات كـ x-www-form-urlencoded ليتعرف عليها C# بسهولة
+                            body: `OriginalPostId=${originalPostId}&Content=${encodeURIComponent(content)}`
+                        });
+
+                        if (response.ok) {
+                            const result = await response.json();
+                            if (result.success) {
+                                alert('تمت المشاركة بنجاح! المنشور رقم: ' + result.postId);
+                                // window.location.reload();
+                            } else {
+                                alert('فشل في المشاركة: ' + result.message);
+                            }
+                        } else {
+                            alert(`فشل إرسال الطلب. الحالة: ${response.status}`);
+                        }
+
+                    } catch (error) {
+                        console.error('Share error:', error);
+                        alert('حدث خطأ في الاتصال (انظر Console للمزيد).');
+                    } finally {
+                        confirmButton.disabled = false;
+                        confirmButton.textContent = 'مشاركة';
+                    }
+                });
+            }
+        });
+
+    </script>
+    
+  
+}

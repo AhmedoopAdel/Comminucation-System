@@ -1,0 +1,261 @@
+﻿@* Views/Post/ViewStories.cshtml *@
+
+@model List<WebApplication10.Models.Story>
+@{
+    // هذه الصفحة يجب أن تكون بـ Layout فارغ لتظهر بملء الشاشة بدون شريط التنقل
+    Layout = null;
+    var publisher = Model.FirstOrDefault()?.User ?? new WebApplication10.Models.User { Username = "مستخدم محذوف" };
+
+    // إعداد البيانات لـ JavaScript
+    var storiesJson = System.Text.Json.JsonSerializer.Serialize(Model.Select(s => new
+    {
+        id = s.Id,
+        url = s.MediaUrl,
+        type = s.MediaType
+    }));
+}
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>قصص @publisher.Username</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.rtl.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        /* CSS لتصميم شاشة القصص بملء الشاشة */
+        body {
+            background-color: black;
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            color: white;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .story-viewer {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 400px;
+            max-height: 800px;
+            background-color: #000;
+        }
+
+        .story-media {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .story-header {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(to top, rgba(0,0,0,0), rgba(0,0,0,0.5));
+            z-index: 10;
+        }
+
+        .progress-bars {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar-segment {
+            flex-grow: 1;
+            height: 3px;
+            background-color: rgba(255, 255, 255, 0.4);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            width: 0;
+            height: 100%;
+            background-color: white;
+            transition: none;
+        }
+
+        .nav-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: space-between;
+            z-index: 5;
+        }
+
+            .nav-area > div {
+                width: 40%;
+                height: 100%;
+            }
+
+        .nav-close {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 15;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="story-viewer" id="storyViewer">
+
+        <a href="/Post/Index" class="btn btn-outline-light nav-close">
+            <i class="bi bi-x-lg"></i>
+        </a>
+
+        <div class="nav-area">
+            <div class="nav-prev" onclick="goToPrevStory()"></div>
+            <div class="nav-next" onclick="goToNextStory()"></div>
+        </div>
+
+        <div class="story-header">
+            <div class="progress-bars" id="progressBarsContainer">
+                @foreach (var story in Model)
+                {
+                    <div class="progress-bar-segment" data-story-id="@story.Id">
+                        <div class="progress-fill"></div>
+                    </div>
+                }
+            </div>
+
+            <div class="d-flex align-items-center">
+                <img src="https://via.placeholder.com/30" class="rounded-circle me-2" style="width: 30px; height: 30px;" alt="صورة المستخدم">
+                <span class="fw-bold me-2">@publisher.Username</span>
+                <small class="text-muted" id="storyTime">الآن</small>
+            </div>
+        </div>
+
+        <div id="mediaContainer" style="width: 100%; height: 100%;">
+            @for (int i = 0; i < Model.Count; i++)
+            {
+                var story = Model[i];
+                if (story.MediaType == "Image")
+                {
+                    <img id="media-@story.Id" src="@story.MediaUrl" class="story-media" data-index="@i" alt="Story Image @i" />
+                }
+                else if (story.MediaType == "Video")
+                {
+                    <video id="media-@story.Id" src="@story.MediaUrl" class="story-media" data-index="@i" autoplay playsinline ></video>
+                }
+            }
+        </div>
+
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const storiesData = @Html.Raw(storiesJson);
+        const storyDuration = 5000; // مدة عرض الصورة بالمللي ثانية (5 ثواني)
+        let currentIndex = 0;
+        let timer;
+
+        function showStory(index) {
+            if (index < 0 || index >= storiesData.length) {
+                // إغلاق العرض والعودة للصفحة الرئيسية
+                window.location.href = '/Post/Index';
+                return;
+            }
+
+            currentIndex = index;
+
+            const currentStory = storiesData[currentIndex];
+            const mediaElement = document.getElementById(`media-${currentStory.id}`);
+            const progressSegments = document.querySelectorAll('.progress-bar-segment');
+
+            // 1. إخفاء جميع القصص وعرض القصة الحالية
+            document.querySelectorAll('.story-media').forEach(el => el.style.display = 'none');
+            mediaElement.style.display = 'block';
+
+            // 2. تحديث أشرطة التقدم (إعادة تعيين الحالي، وملء السابق)
+            progressSegments.forEach((segment, i) => {
+                const fillBar = segment.querySelector('.progress-fill');
+
+                if (i < currentIndex) {
+                    fillBar.style.transition = 'none';
+                    fillBar.style.width = '100%'; // القصص التي تم مشاهدتها
+                } else if (i === currentIndex) {
+                    fillBar.style.transition = 'none';
+                    fillBar.style.width = '0'; // القصة الحالية تبدأ من الصفر
+                } else {
+                    fillBar.style.transition = 'none';
+                    fillBar.style.width = '0'; // القصص اللاحقة
+                }
+            });
+
+            // 3. تشغيل الـ Video إذا كان نوع القصة فيديو
+            if (currentStory.type === "Video") {
+                mediaElement.currentTime = 0;
+                mediaElement.play();
+                mediaElement.onended = goToNextStory; // الانتقال للقصة التالية عند انتهاء الفيديو
+                startTimer(mediaElement.duration * 1000);
+            } else {
+                startTimer(storyDuration); // تشغيل مؤقت ثابت للصور
+            }
+        }
+
+        function startTimer(duration) {
+            clearTimeout(timer);
+            const progressBar = document.querySelector(`.progress-bar-segment:nth-child(${currentIndex + 1}) .progress-fill`);
+
+            // تهيئة شريط التقدم للتحريك
+            progressBar.style.transition = `width ${duration}ms linear`;
+
+            // تفعيل التحريك بعد فترة قصيرة
+            setTimeout(() => {
+                progressBar.style.width = '100%';
+            }, 50);
+
+            // الانتقال للقصة التالية بعد انتهاء المدة (فقط للصور)
+            if (storiesData[currentIndex].type === "Image") {
+                timer = setTimeout(() => {
+                    goToNextStory();
+                }, duration);
+            }
+        }
+
+        function goToNextStory() {
+            // توقيف أي فيديو يعمل قبل الانتقال
+            const currentVideo = document.getElementById(`media-${storiesData[currentIndex].id}`);
+            if (currentVideo && currentVideo.tagName === 'VIDEO') {
+                currentVideo.pause();
+                currentVideo.currentTime = 0;
+            }
+            showStory(currentIndex + 1);
+        }
+
+        function goToPrevStory() {
+            if (currentIndex > 0) {
+                 // توقيف أي فيديو يعمل قبل الانتقال
+                const currentVideo = document.getElementById(`media-${storiesData[currentIndex].id}`);
+                if (currentVideo && currentVideo.tagName === 'VIDEO') {
+                    currentVideo.pause();
+                    currentVideo.currentTime = 0;
+                }
+                 showStory(currentIndex - 1);
+            }
+        }
+
+        // عند تحميل الصفحة، ابدأ بعرض القصة الأولى
+        document.addEventListener('DOMContentLoaded', () => {
+            showStory(0);
+        });
+
+    </script>
+    
+</body>
+</html>

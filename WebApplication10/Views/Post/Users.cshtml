@@ -1,0 +1,75 @@
+﻿@model List<WebApplication10.Models.User>
+
+@{
+    ViewData["Title"] = "البحث عن مستخدمين";
+    var followingIds = (List<int>)ViewBag.FollowingIds;
+    var currentUserId = (int)ViewBag.CurrentUserId;
+}
+
+<div class="container pt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h2 class="mb-4 text-primary">👥 استكشاف المستخدمين</h2>
+
+            <div class="mb-4">
+                <form method="get" asp-action="Users" asp-controller="Post" class="d-flex">
+                    <input class="form-control form-control-lg me-2" name="search" type="search" placeholder="ابحث عن اسم مستخدم..." value="@Context.Request.Query["search"]">
+                    <button class="btn btn-primary btn-lg" type="submit">بحث</button>
+                </form>
+            </div>
+
+            @if (!Model.Any())
+            {
+                <div class="alert alert-warning text-center" role="alert">
+                    لا يوجد مستخدمون مطابقون لنتيجة البحث.
+                </div>
+            }
+
+            <div class="list-group">
+                @foreach (var user in Model)
+                {
+                    if (user.Id == currentUserId) continue; // تخطي المستخدم الحالي
+
+                    bool isFollowing = followingIds.Contains(user.Id);
+
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center mb-2 shadow-sm rounded">
+
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-person-circle fs-3 me-3 text-secondary"></i>
+                            <div>
+                                <a href="/Account/Profile/@user.Id" class="text-dark fw-bold text-decoration-none h5">
+                                    @user.Username
+                                </a>
+                                @if (isFollowing)
+                                {
+                                    <span class="badge bg-secondary ms-2">متابع</span>
+                                }
+                            </div>
+                        </div>
+
+                        <div>
+                            @if (isFollowing)
+                            {
+                                <form method="post" action="/Post/Unfollow" style="display:inline;">
+                                    <input type="hidden" name="userId" value="@user.Id" />
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-person-dash-fill me-1"></i> إلغاء المتابعة
+                                    </button>
+                                </form>
+                            }
+                            else
+                            {
+                                <form method="post" action="/Post/Follow" style="display:inline;">
+                                    <input type="hidden" name="userId" value="@user.Id" />
+                                    <button type="submit" class="btn btn-success btn-sm">
+                                        <i class="bi bi-person-plus-fill me-1"></i> متابعة
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

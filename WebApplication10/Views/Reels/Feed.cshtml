@@ -1,0 +1,696 @@
+﻿@model List<WebApplication10.Models.ReelViewModel>
+
+@{
+    ViewData["Title"] = "خلاصة الريلز";
+    // يتم تمرير هذه المتغيرات من Controller:
+    var currentSkip = ViewBag.CurrentSkip ?? 0;
+    var pageSize = ViewBag.PageSize ?? 10;
+    var hasMoreReels = ViewBag.HasMoreReels ?? false;
+}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+<style>
+    /* ----------------------------------------------------------------
+        * 1. تنسيق الصفحة والريلز الأساسي
+        * ---------------------------------------------------------------- */
+    body {
+        overflow: hidden;
+        background-color: black;
+        padding: 0;
+        margin: 0;
+        font-family: 'Arial', sans-serif;
+    }
+
+    .reels-container {
+        height: 100vh;
+        overflow-y: scroll;
+        scroll-snap-type: y mandatory;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .reel-item {
+        height: 100vh;
+        width: 100vw;
+        max-width: 450px;
+        margin: 0 auto;
+        scroll-snap-align: start;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .reel-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* ----------------------------------------------------------------
+        * 2. تنسيق المعلومات والأزرار الجانبية
+        * ---------------------------------------------------------------- */
+
+    .reel-info {
+        position: absolute;
+        bottom: 20px;
+        left: 15px;
+        color: white;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+        z-index: 10;
+        max-width: 70%;
+    }
+
+        .reel-info h4 {
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+
+    .profile-info {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+        .profile-info img {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid white;
+            margin-left: 10px;
+            object-fit: cover;
+        }
+
+        .profile-info strong {
+            font-size: 1.1em;
+            color: white;
+        }
+
+    .side-controls {
+        position: absolute;
+        bottom: 15%;
+        right: 15px;
+        color: white;
+        z-index: 15;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 25px;
+    }
+
+    .control-button {
+        text-align: center;
+        cursor: pointer;
+        font-size: 1.1em;
+        transition: transform 0.1s ease;
+    }
+
+        .control-button:active {
+            transform: scale(0.9);
+        }
+
+        .control-button i {
+            font-size: 2.2em;
+            margin-bottom: 5px;
+        }
+
+    .liked {
+        color: #ff0044 !important;
+    }
+
+    .sound-control {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 1.5em;
+        color: white;
+        cursor: pointer;
+        z-index: 20;
+        padding: 5px;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 50%;
+    }
+
+    .control-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 4em;
+        color: white;
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        z-index: 20;
+    }
+
+    /* ----------------------------------------------------------------
+        * 3. تنسيق نافذة التعليقات (المودال)
+        * ---------------------------------------------------------------- */
+    #commentsModal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.6);
+        display: none;
+        justify-content: center;
+        align-items: flex-end;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        width: 100%;
+        max-width: 450px;
+        border-top-left-radius: 15px;
+        border-top-right-radius: 15px;
+        padding: 15px;
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.2);
+        max-height: 50vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+    }
+
+    #closeComments {
+        cursor: pointer;
+        font-size: 24px;
+        color: #666;
+    }
+
+    #commentsList {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+
+    .comment-item {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 15px;
+    }
+
+        .comment-item img {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-left: 10px;
+            object-fit: cover;
+        }
+
+    .comment-body {
+        flex-grow: 1;
+        background: #f1f1f1;
+        padding: 8px 12px;
+        border-radius: 15px;
+        line-height: 1.4;
+    }
+
+        .comment-body strong {
+            font-weight: bold;
+            margin-left: 5px;
+        }
+
+    .comment-input-area {
+        display: flex;
+        margin-top: 15px;
+        border-top: 1px solid #eee;
+        padding-top: 10px;
+    }
+
+    #commentText {
+        flex-grow: 1;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 20px;
+        resize: none;
+        margin-left: 10px;
+    }
+
+    #sendComment {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 20px;
+        padding: 0 15px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background-color 0.2s;
+        height: 40px;
+        line-height: 40px;
+    }
+
+        #sendComment:hover {
+            background-color: #0056b3;
+        }
+
+    /* تنسيق مؤشر التحميل */
+    #loadingIndicator {
+        text-align: center;
+        color: white;
+        padding: 20px;
+        font-size: 1.1em;
+    }
+
+</style>
+
+<div class="reels-container" id="reelsContainer">
+    @foreach (var reel in Model)
+    {
+        <div class="reel-item">
+            <video class="reel-video" data-reel-id="@reel.Id" loop muted playsinline>
+                <source src="@reel.VideoPath" type="video/mp4">
+            </video>
+
+            <div class="video-overlay" data-reel-id="@reel.Id">
+                <i class="fas fa-play control-icon play-pause-icon" data-reel-id="@reel.Id"></i>
+            </div>
+
+            <div class="sound-control" data-reel-id="@reel.Id">
+                <i class="fas fa-volume-mute sound-icon"></i>
+            </div>
+
+            <div class="side-controls">
+                <div class="control-button like-button" data-reel-id="@reel.Id">
+                    <i class="@(reel.IsLikedByMe ? "fas fa-heart liked" : "far fa-heart")"></i>
+                    <span class="likes-count">@reel.LikesCount</span>
+                </div>
+
+                <div class="control-button comment-button" data-reel-id="@reel.Id">
+                    <i class="far fa-comment-dots"></i>
+                    <span>@reel.CommentsCount</span>
+                </div>
+
+                <div class="control-button share-button" data-reel-id="@reel.Id">
+                    <i class="fas fa-share"></i>
+                    <span>@reel.SharesCount</span>
+                </div>
+            </div>
+
+            <div class="reel-info">
+                <div class="profile-info">
+                    @* افتراض أن ReelViewModel يحتوي على ProfileImageUrl *@
+                    <img src="" alt="صورة المستخدم" />
+                    <strong>@reel.Username</strong>
+                </div>
+                <h4>@reel.Caption</h4>
+            </div>
+        </div>
+    }
+
+    @* 🔑 مؤشر التحميل (يتم إخفاؤه/إظهاره عبر JavaScript) *@
+    <div id="loadingIndicator" style="display: @(hasMoreReels ? "none" : "block")">
+        @if (hasMoreReels)
+        {
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>جاري تحميل المزيد... </span>
+          }
+        else
+        {
+            <span>لا يوجد المزيد من الريلز.</span>
+        }
+    </div>
+</div>
+
+<div id="commentsModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>التعليقات</h4>
+            <span id="closeComments"><i class="fas fa-times"></i></span>
+        </div>
+
+        <div id="commentsList">
+        </div>
+
+        <div class="comment-input-area">
+            <textarea id="commentText" placeholder="أضف تعليقاً..." rows="1"></textarea>
+            <button id="sendComment" disabled>إرسال</button>
+        </div>
+    </div>
+</div>
+
+---
+
+@section Scripts {
+    <script>
+        let selectedReelId = null;
+        let isScrollingToReel = false;
+
+        // 🔑 متغيرات حالة التحميل اللانهائي
+        // تأكد من أن هذه المتغيرات تتبع قيم ViewBag المرسلة من Controller
+        let skip = @(ViewBag.CurrentSkip ?? 0);
+        const pageSize = @(ViewBag.PageSize ?? 10);
+        let hasMore = @(ViewBag.HasMoreReels.ToString().ToLower() ?? "false");
+        let isLoading = false;
+
+        const reelsContainer = document.getElementById('reelsContainer');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        // ----------------------------------------------------------------
+        // وظائف مساعدة (Functions) - تبقى كما هي
+        // ----------------------------------------------------------------
+
+        function togglePlay(reelId) {
+            const video = document.querySelector(`.reel-video[data-reel-id="${reelId}"]`);
+            const icon = document.querySelector(`.play-pause-icon[data-reel-id="${reelId}"]`);
+            // ... (باقي منطق togglePlay)
+            if (video.paused) {
+                video.play().catch(e => console.log('Play failed:', e));
+                icon.classList.replace('fa-play', 'fa-pause');
+                showIcon(icon);
+            }
+            else {
+                video.pause();
+                icon.classList.replace('fa-pause', 'fa-play');
+                showIcon(icon);
+            }
+        }
+
+        function showIcon(icon) { icon.style.opacity = 1; setTimeout(() => icon.style.opacity = 0, 500); }
+
+        function toggleSound(reelId) {
+            const video = document.querySelector(`.reel-video[data-reel-id="${reelId}"]`);
+            const icon = document.querySelector(`.sound-control[data-reel-id="${reelId}"] .sound-icon`);
+            // ... (باقي منطق toggleSound)
+            if (video.muted) {
+                video.muted = false;
+                icon.classList.replace('fa-volume-mute', 'fa-volume-up');
+            }
+            else {
+                video.muted = true;
+                icon.classList.replace('fa-volume-up', 'fa-volume-mute');
+            }
+        }
+
+        function buildCommentItem(username, content, profileImageUrl) {
+            // ... (باقي منطق buildCommentItem)
+            return `
+                <div class="comment-item">
+                    <img src="${profileImageUrl}" alt="صورة المستخدم" />
+                    <div class="comment-body">
+                        <strong>${username}</strong> ${content}
+                    </div>
+                </div>
+            `;
+        }
+
+        function buildReelItem(reel) {
+            const isLikedClass = reel.isLikedByMe ? "fas fa-heart liked" : "far fa-heart";
+            // ... (باقي منطق buildReelItem)
+            return `
+                <div class="reel-item">
+                    <video class="reel-video" data-reel-id="${reel.id}" loop muted playsinline>
+                        <source src="${reel.videoPath}" type="video/mp4">
+                    </video>
+
+                    <div class="video-overlay" data-reel-id="${reel.id}">
+                        <i class="fas fa-play control-icon play-pause-icon" data-reel-id="${reel.id}"></i>
+                    </div>
+
+                    <div class="sound-control" data-reel-id="${reel.id}">
+                        <i class="fas fa-volume-mute sound-icon"></i>
+                    </div>
+
+                    <div class="side-controls">
+                        <div class="control-button like-button" data-reel-id="${reel.id}">
+                            <i class="${isLikedClass}"></i>
+                            <span class="likes-count">${reel.likesCount}</span>
+                        </div>
+                        <div class="control-button comment-button" data-reel-id="${reel.id}">
+                            <i class="far fa-comment-dots"></i>
+                            <span>${reel.commentsCount}</span>
+                        </div>
+                        <div class="control-button share-button" data-reel-id="${reel.id}">
+                            <i class="fas fa-share"></i>
+                            <span>${reel.sharesCount}</span>
+                        </div>
+                    </div>
+
+                    <div class="reel-info">
+                        <div class="profile-info">
+                            <img src="${reel.profileImageUrl}" alt="صورة المستخدم" />
+                            <strong>${reel.username}</strong>
+                        </div>
+                        <h4>${reel.caption}</h4>
+                    </div>
+                </div>
+            `;
+        }
+
+              function scrollToReelFromQuery(targetReelId) {
+            // 🔑 نستخدم الـ ID الذي تم تمريره بدلاً من تحليل URL
+            const reelId = targetReelId;
+            if (reelId) {
+                isScrollingToReel = true;
+                const targetVideo = document.querySelector(`.reel-item video[data-reel-id="${reelId}"]`);
+
+                if (targetVideo) {
+                    const reelItem = targetVideo.closest('.reel-item');
+                    if (reelItem) {
+                        reelItem.scrollIntoView({ behavior: 'auto', block: 'start' });
+
+                        setTimeout(() => {
+                            targetVideo.muted = false;
+                            targetVideo.play().catch(e => console.error("Autoplay failed after scroll:", e));
+                            document.querySelector(`.play-pause-icon[data-reel-id="${reelId}"]`).classList.replace('fa-play', 'fa-pause');
+                            isScrollingToReel = false;
+                        }, 500);
+                    }
+                } else {
+                    isScrollingToReel = false;
+                }
+            }
+        }
+        // ----------------------------------------------------------------
+        // 🔑 وظيفة جلب المزيد من الريلز (AJAX) - تبقى كما هي
+        // ----------------------------------------------------------------
+        function loadMoreReels() {
+            if (!hasMore || isLoading) return;
+
+            isLoading = true;
+            loadingIndicator.style.display = 'block';
+            loadingIndicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري تحميل المزيد...';
+
+            $.ajax({
+                url: '/Reels/LoadMoreReels',
+                type: 'GET',
+                data: { skip: skip, take: pageSize },
+                success: function (res) {
+                    if (res.reels && res.reels.length > 0) {
+                        let newReelIds = [];
+                        res.reels.forEach(reel => {
+                            const newReelHtml = buildReelItem(reel);
+                            $(newReelHtml).insertBefore(loadingIndicator);
+                            newReelIds.push(reel.id);
+                        });
+
+                        skip += res.reels.length;
+                        hasMore = res.hasMore;
+
+                        // 🔑 لا نحتاج reAttachEventsAndObserver بعد الآن،
+                        // نكتفي بإعادة ربط IntersectionObserver
+                        reObserveNewVideos(newReelIds);
+
+                    } else {
+                        hasMore = false;
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                     console.error("AJAX Failed:", textStatus, errorThrown);
+                     hasMore = false;
+                },
+                complete: function () {
+                    isLoading = false;
+                    loadingIndicator.style.display = 'block';
+                    if (!hasMore) {
+                         $('#loadingIndicator').html('لا يوجد المزيد من الريلز.');
+                    } else {
+                         loadingIndicator.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        // ----------------------------------------------------------------
+        // 🔑 وظيفة إعادة ربط Observer فقط
+        // ----------------------------------------------------------------
+        function reObserveNewVideos(newReelIds) {
+            newReelIds.forEach(reelId => {
+                const newVideo = document.querySelector(`.reel-video[data-reel-id="${reelId}"]`);
+                if (newVideo) {
+                    observer.observe(newVideo);
+                }
+            });
+        }
+
+        // ----------------------------------------------------------------
+        // 🔑 معالجة الأحداث باستخدام التفويض (Delegation)
+        // ----------------------------------------------------------------
+
+        // 1. زر اللايك (AJAX ToggleLike)
+        // نربط الحدث بعنصر رئيسي ثابت (reelsContainer) ونوجهه للعمل على .like-button
+        $('#reelsContainer').on('click', '.like-button', function () {
+            const reelId = this.dataset.reelId;
+            const icon = $(this).find('i');
+            const countSpan = $(this).find('.likes-count');
+
+            $.post('/Reels/ToggleLike', { reelId: reelId }, function (res) {
+                if (res.success) {
+                    if (res.isLiked) { icon.removeClass('far').addClass('fas liked'); }
+                    else { icon.removeClass('fas liked').addClass('far'); }
+                    countSpan.text(res.totalLikes);
+                }
+            }).fail(function(){ alert('فشل الإعجاب. يرجى تسجيل الدخول.'); });
+        });
+
+        // 2. زر المشاركة (AJAX ShareReel)
+        $('#reelsContainer').on('click', '.share-button', function () {
+            const reelId = this.dataset.reelId;
+            const countSpan = $(this).find('span');
+
+            $.post('/Reels/ShareReel', { reelId: reelId }, function (res) {
+                if (res.success) {
+                    countSpan.text(res.totalShares);
+                    alert('تمت المشاركة بنجاح كمنشور جديد! 🎉');
+                } else {
+                    alert('فشل المشاركة. يرجى تسجيل الدخول.');
+                }
+            }).fail(function(){ alert('فشل المشاركة.'); });
+        });
+
+        // 3. فتح نافذة التعليقات
+        $('#reelsContainer').on('click', '.comment-button', function () {
+            selectedReelId = this.dataset.reelId;
+            $('#commentsList').html('<p style="text-align:center; color:#999;">جاري تحميل التعليقات...</p>');
+            $('#commentsModal').css('display', 'flex');
+
+            $.get('/Reels/GetComments', { reelId: selectedReelId }, function (comments) {
+                $('#commentsList').empty();
+                if (comments && comments.length > 0) {
+                    comments.forEach(comment => {
+                        $('#commentsList').append(buildCommentItem(comment.username, comment.content, comment.profileImageUrl));
+                    });
+                } else {
+                    $('#commentsList').html('<p style="text-align:center; color:#999;">لا توجد تعليقات بعد. كن أول من يعلق!</p>');
+                }
+            }).fail(function(){
+                $('#commentsList').html('<p style="text-align:center; color:red;">فشل في تحميل التعليقات.</p>');
+            });
+        });
+
+        // 6. التحكم في التشغيل وكتم/تشغيل الصوت (بالتفويض)
+
+        // النقر المزدوج (dblclick) لتشغيل/إيقاف
+        $('#reelsContainer').on('dblclick', '.video-overlay', function () {
+            togglePlay(this.dataset.reelId);
+        });
+
+        // Sound control
+        $('#reelsContainer').on('click', '.sound-control', function (e) {
+            e.stopPropagation();
+            toggleSound(this.dataset.reelId);
+        });
+
+        // 4. إرسال تعليق (AJAX AddComment) - يبقى كما هو لأنه ليس عنصراً مضافاً حديثاً
+        $('#sendComment').click(function () {
+            const content = $('#commentText').val().trim();
+            if (!content || !selectedReelId) return;
+
+            $('#sendComment').prop('disabled', true).text('جاري الإرسال...');
+            $('#commentText').prop('disabled', true);
+
+            $.post('/Reels/AddComment', { reelId: selectedReelId, content: content }, function (res) {
+                if (res.success) {
+                    if ($('#commentsList p').text().includes('لا توجد تعليقات')) { $('#commentsList').empty(); }
+                    $('#commentsList').append(buildCommentItem(res.username, res.content, res.profileImageUrl));
+                    $(`.comment-button[data-reel-id="${selectedReelId}"] span`).text(res.totalComments);
+                    $('#commentText').val('');
+
+                } else {
+                    alert('فشل إضافة التعليق. يرجى تسجيل الدخول.');
+                }
+            }).always(function(){
+                $('#sendComment').prop('disabled', false).text('إرسال');
+                $('#commentText').prop('disabled', false);
+            });
+        });
+
+        // تفعيل زر الإرسال عند كتابة شيء (يبقى كما هو)
+        $('#commentText').on('input', function() {
+            if ($(this).val().trim().length > 0) {
+                $('#sendComment').prop('disabled', false);
+            } else {
+                $('#sendComment').prop('disabled', true);
+            }
+        });
+
+        // 5. غلق نافذة التعليقات (يبقى كما هو)
+        $('#closeComments').click(function () { $('#commentsModal').hide(); });
+
+
+        // ----------------------------------------------------------------
+        // 8. التشغيل التلقائي على التمرير (Intersection Observer)
+        // ----------------------------------------------------------------
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const video = entry.target;
+                const reelId = video.dataset.reelId;
+                const icon = document.querySelector(`.play-pause-icon[data-reel-id="${reelId}"]`);
+
+                if (entry.isIntersecting) {
+                    if (!isScrollingToReel) {
+                        video.play().catch(e => console.log('Autoplay blocked:', e));
+                        icon.classList.replace('fa-play', 'fa-pause');
+                    }
+                } else {
+                    video.pause();
+                    icon.classList.replace('fa-pause', 'fa-play');
+                }
+            });
+        }, {
+            threshold: 0.8,
+            rootMargin: '0px'
+        });
+
+        // مراقبة فيديوهات الدفعة الأولى
+        document.querySelectorAll('.reel-video').forEach(video => observer.observe(video));
+
+        // ----------------------------------------------------------------
+        // 🔑 منطق اكتشاف التمرير (Scroll Detection) - يبقى كما هو
+        // ----------------------------------------------------------------
+
+        reelsContainer.addEventListener('scroll', function() {
+            if (reelsContainer.scrollTop + reelsContainer.clientHeight >= reelsContainer.scrollHeight - 200) {
+                loadMoreReels();
+            }
+        });
+
+        // ----------------------------------------------------------------
+        // 🔑 تشغيل الدالة عند تحميل المستند 🔑
+        // ----------------------------------------------------------------
+
+        $(document).ready(function() {
+            const targetId = @(((int?)ViewBag.TargetReelId).HasValue ? ViewBag.TargetReelId.ToString() : "null");
+
+            if (targetId !== null) {
+                // نمرر القيمة المحولة إلى int للدالة
+                scrollToReelFromQuery(parseInt(targetId));
+            }
+
+            // إخفاء مؤشر التحميل عند البداية إذا كان هناك المزيد للتحميل
+            if (hasMore) {
+                loadingIndicator.style.display = 'none';
+            }
+        });
+
+    </script>
+}

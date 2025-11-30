@@ -1,0 +1,307 @@
+﻿@inject WebApplication10.Models.AppDbContext _db
+@{
+    var currentUserId = Context.Session.GetInt32("UserId");
+    int unreadCount = 0;
+    if (currentUserId != null)
+    {
+        // استخدام Find أسرع من FirstOrDefault لجلب المستخدم
+        var user = _db.Users.Find(currentUserId);
+        ViewBag.Username = user?.Username ?? "حسابي";
+        unreadCount = _db.notifications.Count(n => n.UserId == currentUserId && !n.IsRead);
+    }
+}
+
+
+<!DOCTYPE html>
+<html> <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - WebApplication10</title>
+    
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/WebApplication10.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom fixed-top">
+            <div class="container">
+                <a class="navbar-brand text-primary fw-bold" href="/post/index">مجتمعنا</a>
+                
+                <form class="d-flex mx-auto" method="get" asp-action="Users" asp-controller="Post" style="max-width: 400px;">
+                    <input class="form-control me-2" name="search" type="text" placeholder="ابحث عن أصدقاء أو منشورات">
+                </form>
+
+                <ul class="navbar-nav d-flex flex-row align-items-center">
+                    
+                    @if (currentUserId != null)
+                    {
+                        <li class="nav-item me-3 dropdown">
+                            <a class="nav-link p-0 position-relative" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-bell-fill fs-5"></i>
+                                <span id="notificationBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="@(unreadCount > 0 ? "" : "display: none;")">
+                                    @unreadCount
+                                </span>
+                            </a>
+                            <ul id="notificationList" class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="notificationsDropdown" style="width: 350px;">
+                                <li class="dropdown-header fw-bold text-center">الإشعارات</li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-center text-primary" href="/Post/Notifications">عرض كل الإشعارات</a></li>
+                            </ul>
+                        </li>
+
+                        <li class="nav-item me-3">
+                            <a class="nav-link p-0" href="/Message/ChatList"><i class="bi bi-chat-dots-fill fs-5"></i></a>
+                        </li>
+                        
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle me-1"></i> @ViewBag.Username
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userDropdown">
+                                <li><a class="dropdown-item" href="/Account/Profile"><i class="bi bi-person-vcard me-2"></i> ملفي الشخصي</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form asp-controller="Account" asp-action="Logout" method="post">
+                                        <button type="submit" class="dropdown-item text-danger">
+                                            <i class="bi bi-box-arrow-right me-2"></i> تسجيل الخروج
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="nav-item"><a class="nav-link" href="/Account/Login">دخول</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/Account/Register">تسجيل</a></li>
+                    }
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container" style="padding-top: 60px;"> <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.7/signalr.min.js"></script>
+
+    <script>
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/notificationHub")
+            .build();
+
+        const notificationList = document.getElementById("notificationList");
+        const badge = document.getElementById("notificationBadge");
+
+        // ----------------------------------------------------
+        // 1. Mark As Read and Redirect Function (للضغط على الإشعار)
+        // ----------------------------------------------------
+
+        function updateBadge(newCount) {
+            if (badge) {
+                if (newCount > 0) {
+                    badge.textContent = newCount;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        }
+
+        // دالة يتم استدعاؤها عند الضغط على الإشعار في القائمة المنسدلة
+        function markAndRedirect(event, notificationId, destinationUrl) {
+            event.preventDefault(); // منع التوجيه الافتراضي لضمان تنفيذ AJAX أولاً
+
+            // إرسال طلب MarkAsRead عبر AJAX (بدون انتظار النتيجة)
+            markAsRead(notificationId);
+            
+            // تغيير ستايل الإشعار مباشرة في الواجهة (UI)
+            const clickedItem = event.currentTarget;
+            clickedItem.classList.remove('bg-light', 'fw-bold');
+            const smallText = clickedItem.querySelector('small');
+            if(smallText) {
+                smallText.classList.remove('text-primary');
+                smallText.classList.add('text-muted');
+            }
+
+            // التوجيه إلى صفحة المنشور إذا كان الرابط موجوداً
+            if (destinationUrl && destinationUrl !== '#') {
+                // تأخير بسيط غير إلزامي
+                setTimeout(() => {
+                    window.location.href = destinationUrl;
+                }, 100);
+            }
+        }
+
+
+        function markAsRead(notificationId) {
+            fetch('/Post/MarkAsRead?notificationId=' + notificationId, {
+                method: 'POST',
+                // يفضل استخدام AntiForgery Token إذا كان مطبقاً
+            })
+            .then(response => response.json())
+            .then(data => {
+                // تحديث العداد بعد قراءة الإشعار
+                if (data.success) {
+                    updateBadge(data.newUnreadCount); // ⭐ استخدام الدالة الجديدة
+                }
+            })
+            .catch(error => console.error('Error marking as read:', error));
+        }
+        // ----------------------------------------------------
+        // 2. Load Notifications Function (لجلب البيانات)
+        // ----------------------------------------------------
+
+        // دالة لجلب وعرض الإشعارات في القائمة المنسدلة
+        async function loadNotifications() {
+            const list = document.getElementById("notificationList");
+            if (!list) return;
+            
+            // تنظيف القائمة مع الاحتفاظ بالعناصر الثابتة (العنوان، المقسم، رابط الكل)
+            const headerItem = list.querySelector('.dropdown-header').closest('li');
+            const dividerItem = list.querySelector('.dropdown-divider').closest('li');
+            const allLinkItem = list.querySelector('li:last-child');
+            list.innerHTML = '';
+            list.appendChild(headerItem);
+            list.appendChild(dividerItem);
+
+
+            try {
+                const response = await fetch('/Post/GetNotifications');
+                const data = await response.json();
+
+                // تحديث العداد
+                if (badge) {
+                    if (data.unreadCount > 0) {
+                        badge.textContent = data.unreadCount;
+                        badge.style.display = 'block';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+                
+                // إضافة الإشعارات
+                if (data.notifications && data.notifications.length > 0) {
+                    data.notifications.forEach(n => {
+                        const li = document.createElement("li");
+                        
+                        let iconClass = 'bi-bell-fill text-muted';
+                        let linkDestination = '#';
+
+                        // 🔔 تحديد الأيقونة والرابط بناءً على نوع الإشعار (n.notificationType)
+                        if (n.notificationType === 'Like') {
+                            iconClass = 'bi-heart-fill text-danger';
+                            linkDestination = `/Post/Details/${n.postId}`;
+                        } else if (n.notificationType === 'Comment') {
+                            iconClass = 'bi-chat-left-text-fill text-info';
+                            linkDestination = `/Post/Details/${n.postId}`;
+                        } else if (n.notificationType === 'Share') {
+                            // ✅ إضافة منطق المشاركة
+                            iconClass = 'bi-share-fill text-success';
+                            linkDestination = `/Post/Details/${n.postId}`; 
+                        } else if (n.notificationType === 'Follow') {
+                            iconClass = 'bi-person-plus-fill text-primary';
+                            linkDestination = `/Account/Profile/${n.postId}`; // نفترض أن PostId هو UserID للمتابعة
+                        } else if (n.notificationType === 'Message') {
+                            iconClass = 'bi-envelope-fill text-warning';
+                            linkDestination = `/Message/Chat?userId=${n.postId}`; // نفترض أن PostId هو UserID للرسائل
+                        }
+                        
+                        li.classList.add('dropdown-item', 'd-flex', 'align-items-start', 'border-bottom');
+                        if (!n.isRead) {
+                            li.classList.add('bg-light', 'fw-bold');
+                        }
+
+                        // محتوى عنصر القائمة
+                        li.innerHTML = `
+                            <i class="${iconClass} me-2 fs-5 pt-1 flex-shrink-0"></i>
+                            <a href="${linkDestination}" class="text-decoration-none flex-grow-1 text-${n.isRead ? 'dark' : 'primary'}"
+                                onclick="markAndRedirect(event, ${n.id}, '${linkDestination}')">
+                                <p class="mb-0 small text-wrap">${n.message}</p>
+                                <small class="text-${n.isRead ? 'muted' : 'primary'}">${n.createdAt}</small>
+                            </a>
+                        `;
+
+                        // إضافة عنصر القائمة قبل رابط "عرض كل الإشعارات"
+                        list.insertBefore(li, allLinkItem); 
+                    });
+                }
+                else {
+                    const li = document.createElement("li");
+                    li.innerHTML = '<span class="dropdown-item text-center text-muted">لا توجد إشعارات حالياً.</span>';
+                    list.insertBefore(li, dividerItem);
+                }
+
+                list.appendChild(allLinkItem); // إعادة رابط عرض الكل
+
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+            }
+        }
+
+        // ----------------------------------------------------
+        // 3. SignalR and Event Binding (للتحديث الفوري والربط)
+        // ----------------------------------------------------
+
+        // ربط القائمة المنسدلة لتحميل البيانات عند فتحها
+        if (document.getElementById("notificationsDropdown")) {
+             document.getElementById("notificationsDropdown").addEventListener('show.bs.dropdown', loadNotifications);
+        }
+
+        // دالة SignalR لاستقبال الإشعارات الفورية
+        connection.on("ReceiveNotification", function(notification) { 
+    
+            // 1. زيادة العداد وتحديثه
+            let currentCount = parseInt(badge.textContent || 0);
+            updateBadge(currentCount + 1);
+    
+            // 2. ⭐ إضافة الإشعار الجديد يدوياً إلى القائمة المنسدلة
+            const list = document.getElementById("notificationList");
+            const dividerItem = list.querySelector('.dropdown-divider').closest('li');
+
+            // تحديد الرابط المناسب (يجب أن يتم إرسال linkDestination من الـ Controller)
+            let link = notification.linkDestination || '/Post/Notifications';
+    
+            const li = document.createElement("li");
+            li.innerHTML = `
+                <a class="dropdown-item bg-light fw-bold" 
+                    href="${link}"
+                    onclick="markAndRedirect(event, ${notification.id}, '${link}')">
+                    ${notification.message}
+                    <small class="d-block text-end text-primary">${notification.createdAt}</small>
+                </a>
+            `;
+    
+            // إضافة العنصر الجديد في البداية بعد العنوان والمقسم الأولي
+            list.insertBefore(li, dividerItem.nextSibling);
+
+            // 3. عرض إشعار Toast (اختياري)
+            console.log("رسالة إشعار فورية جديدة: " + notification.message); 
+        });
+        
+        // ⭐ الجديد: دالة SignalR لتلقي تحديث العداد بعد قراءة الرسائل في صفحة الدردشة
+        connection.on("UpdateUnreadCount", function(newUnreadCount) {
+             updateBadge(newUnreadCount);
+        });
+
+
+        // تشغيل SignalR
+        connection.start().catch(err => console.error(err.toString()));
+
+        // قم بتحميل الإشعارات لأول مرة عند تحميل الصفحة لتحديث العداد في الـ badge
+        if (badge) loadNotifications();
+
+
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,42 @@
+﻿@* Views/Shared/_CreateStoryModal.cshtml *@
+
+<div class="modal fade" id="createStoryModal" tabindex="-1" aria-labelledby="createStoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createStoryModalLabel">إنشاء قصة جديدة 📸</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form method="post" action="/Post/CreateStory" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <p class="text-muted small">يرجى رفع صورة (.jpg, .png) أو فيديو (.mp4, .mov). تُحذف القصة بعد 24 ساعة.</p>
+
+                    <div class="mb-3">
+                        <label for="mediaFile" class="form-label">اختر صورة/فيديو القصة</label>
+                        <input class="form-control" type="file" id="mediaFile" name="mediaFile" accept="image/*,video/*" required>
+                    </div>
+
+                    @if (TempData["StoryError"] != null)
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @TempData["StoryError"]
+                        </div>
+                    }
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">نشر القصة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openCreateStoryModal() {
+        var createStoryModal = new bootstrap.Modal(document.getElementById('createStoryModal'));
+        createStoryModal.show();
+    }
+</script>

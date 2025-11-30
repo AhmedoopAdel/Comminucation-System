@@ -1,0 +1,8 @@
+bin/
+obj/
+*.md
+*.log
+*.git
+.vscode/
+.env
+wwwroot/uploads/
